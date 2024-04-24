@@ -15,7 +15,7 @@ def readIn():
     # Replace open statement with next 2 lines in order to open file explorer for user to choose file
     # filepath = askopenfilename(initialdir=os.getcwd())
     # inFile = open(filepath, 'r')
-    inFile = open("C:/Users/JGMan/PycharmProjects/3230_TSP/test.txt", 'r')
+    inFile = open("C:/Users/JGMan/PycharmProjects/3230_TSP/tsp_14.txt", 'r')
     # Reads and removes first line to be read
     numPoints = int(inFile.readline())
     # add 1 to num points to include (0,0)
@@ -140,7 +140,7 @@ def nearNieghbor(dMatrix, numPoints):
 
 # permutation function working well at least for brute force?
 def calcPermutationDistBF(numPoints, dm):
-    timeLimit = 10800.0
+    timeLimit = 120.0
     # itertools creates data for all perms of 1 to numPoints
     # idk how this works under the hood, but seems to not be a normal
     # list or array
@@ -201,7 +201,7 @@ def calcPermutationDistMBF(numPoints, dm):
     index2Far = 99
     path2Far = []
 
-    timeLimit = 10800.0
+    timeLimit = 120.0
     ignoreFlag = False
 
     # itertools creates data for all perms of 1 to numPoints
@@ -281,72 +281,78 @@ def calcPermutationDistMBF(numPoints, dm):
     return bestPath, bfTime, numPerms
 
 
-# best attempt at translating book pseudo to python
-# the 'c' argument is the 'w' in mstPrim(graph, w, r)
- # 1: select a vertex r which is an element of Graph.v to be a "root" vertex
-        # just choose 0 everytime?
-    # 2: compute minimum spanning tree T for G from root r
-        # using mstPrim(G, c, r) -- defined below
-    # 3: let H be a list of vertices ordered according to when they were first visited
-        # in a preorder tree walk of T
-    # 4: return the hamiltonian cycle H
-    # // the hamiltonian cycle is simply a path that visits every vertex once
-    # // so here, we would just remember which nodes were added first in mst
-    # // then add them to a path, before calculating distance of that path.
-def approxTspTour(graph, c):
-    def mstPrim(graph, c, r):
-        graph.append([0,0])
-        n = len(graph)
-        key = [float('inf')] * n  # Initialize keys
-        parent = [None] * n  # Initialize parent array
-        key[r] = 0  # Make root key 0
-        mstSet = [False] * n  # Initialize MST set
-        mstSet[r] = True  # Include root in MST
-        for x in range(n - 1):
-            u = -1
-            for v in range(n):
-                if not mstSet[v] and (u == -1 or key[v] < key[u]):
-                    u = v
-            mstSet[u] = True
+# creates an approximate tour of the graph by determining optimal parents
+# from a Minimum spanning tree, using Prim's algo, then it
+# creates a hamiltonian cycle out of that list of optimal parents by
+# running a preorder DFS traversal of the tree and tracking the order in which the nodes are visited.
+# since nodes are not named, Graph is simply a range 0-N, N being number of nodes (ignoring {0,0})
+# dMat is the precalculated distance matrix
+def approxTspTour(Graph, dMat):
+    root = 0 # should probably be defined in input, but for our purposes, root is always 0
 
-            for v in range(n):
-                if not mstSet[v] and c[u][v] < key[v]:
-                    parent[v] = u
-                    key[v] = c[u][v]
-        return parent
-    mst = mstPrim(graph, c, 0)
-    hamCycle = []
+    # w = dMat
+    def mstPrim(Graph, w, root):
+        # prioList holds current best distance to each node
+        prioList = []
+        # parent list holds optimal parent info where:
+        # index of list refers to the node itself
+        # the value refers to that index's optimal parent
+        parentList = []
+        # this for loop initializes each list with root as current best parent
+        for v in Graph:
+            prioList.append(w[root][v])
+            parentList.append(root)
 
-    def preorder(u):
-        nonlocal hamCycle
-        hamCycle.append(u)
-        for v in range(len(graph)):
-            if mst[v] == u:
-                preorder(v)
+        MST = []
+        # for each in Graph = range(0, 7, 1) with 'i' representing number of the node
+        for i in Graph:
+            # init minimum distance and minimum vertex
+            minimum = 99999999999999999999999999999
+            minVertex = None
+            # checks each vertex if it's distance is less than the current minimum (and more than 0)
+            for v in Graph:
+                if 0 < prioList[v] < minimum:
+                    # update minimum info
+                    minimum = prioList[v]
+                    minVertex = v
+            # if minVertex was updated.
+            if minVertex:
+                # init prioList of that vertex to 0
+                prioList[minVertex] = 0
+                # idk what this does dont ask
+                MST.append(w[minVertex][parentList[minVertex]])
+                # updates prioList and Parent list if they need changed
+                for v in Graph:
+                    if prioList[v] > w[v][minVertex]:
+                        prioList[v] = w[v][minVertex]
+                        parentList[v] = minVertex
+        return parentList
+    mstParents = mstPrim(Graph, dMat, root)
+    # init visited list with root being "pre-visited"
+    visited = [root]
 
-    preorder(0)
-    hamCycle.append(0)
+    # recursive top down DFS preorder traversal of the MST based on the parentList
+    # which adds nodes to visited in order of when they were visited. This results
+    # in a Hamiltonian cycle (After you append the root back to it afterwards)
+    def topDownDFStoHam(Graph, mstPList, root):
+        nonlocal visited
+        if mstPList[root] is not None:
+            mstPList[root] = None
+        for i in Graph:
+            if mstPList[i] == root:
+                visited.append(i)
+                topDownDFStoHam(Graph, mstPList, i)
+        return visited
 
-    return hamCycle
+    ham = topDownDFStoHam(Graph, mstParents, root)
+    # finish hamiltonian cycle
+    ham.append(root)
+    hamDist = 0
+    # calculate the distance of the hamiltonian cycle
+    for i in Graph:
+        hamDist += dMat[ham[i]][ham[i + 1]]
 
-
-# def mstPrim(Graph, w, r):
-    # for each vertex u which is an element in graph.v
-    #     u.key = 99999999999999999999
-    #     u.pi = NIL
-    # r.key = 0
-    # Queue = [empty]
-    # for each vertex u which is an element in graph.v
-    #     insert(Queue, u)      // u into Queue
-    # while Queue != [empty]
-    #     u = extractMin(Queue) // take first from queue??
-    #     for each vertex v in Graph.adj[u]
-    #        if v is an element in Queue and w(u, v) < v.key
-    #           v.pi = u
-    #           v.key = w(u,v)
-    #           decreaseKey(Queue, v, w(u,v))
-
-    # return
+    return ham, hamDist
 
 
 # DRIVER
@@ -357,25 +363,29 @@ dMatrix = distanceMatrixCalc(numofpoints, listPoints)
 print(dMatrix)
 #######################################################
 # Calculate and print Nearest Neighbor Info
-# nearPath, nearDistance, nearArr = nearNieghbor(dMatrix, numofpoints)
-# print("\nNearest neighbor Path: " + str(nearPath))
-# print("Nearest neighbor Distance: " + str(nearDistance) + "\n")
+nearPath, nearDistance, nearArr = nearNieghbor(dMatrix, numofpoints)
+print("\nNearest neighbor Path: " + str(nearPath))
+print("Nearest neighbor Distance: " + str(nearDistance) + "\n")
 # print("Nearest neighbor Distances Array: " + str(nearArr))
 #######################################################
-# Calculate and print Brute force Info
-# MbestPathFound, MBFTIME, MnumChecked = calcPermutationDistMBF(numofpoints, dMatrix)
-# print("Best Path Found: " + str(MbestPathFound[0]))
-# print("Distance of Path: " + str(round(MbestPathFound[1], 2)))
-# print("Calculation Time: " + str(round(MBFTIME, 4)))
-# print("Number of permutations checked: " + str(MnumChecked))
-#######################################################
-# Calculate and print Brute force Info
-# bestPathFound, BFTIME, numChecked = calcPermutationDistBF(numofpoints, dMatrix)
-# print("Best Path Found: " + str(bestPathFound[0]))
-# print("Distance of Path: " + str(round(bestPathFound[1], 2)))
-# print("Calculation Time: " + str(round(BFTIME, 4)))
-# print("Number of permutations checked: " + str(numChecked) + "\n")
-#######################################################
 # book's approximation algorithm
-approxTour = approxTspTour(listPoints, dMatrix)
-print(approxTour)
+graph = range(len(listPoints))
+approxTour, approxTourDist = approxTspTour(graph, dMatrix)
+print("Approximate Tour using Top Down DFS of Prim's MST: " + str(approxTour))
+print("Distance of the Approximate Tour: " + str(round(approxTourDist, 2)) + "\n")
+#######################################################
+# Calculate and print Brute force Info
+MbestPathFound, MBFTIME, MnumChecked = calcPermutationDistMBF(numofpoints, dMatrix)
+print("Best Path Found: " + str(MbestPathFound[0]))
+print("Distance of Path: " + str(round(MbestPathFound[1], 2)))
+print("Calculation Time: " + str(round(MBFTIME, 4)))
+print("Number of permutations checked: " + str(MnumChecked) + "\n")
+#######################################################
+# Calculate and print Brute force Info
+bestPathFound, BFTIME, numChecked = calcPermutationDistBF(numofpoints, dMatrix)
+print("Best Path Found: " + str(bestPathFound[0]))
+print("Distance of Path: " + str(round(bestPathFound[1], 2)))
+print("Calculation Time: " + str(round(BFTIME, 4)))
+print("Number of permutations checked: " + str(numChecked) + "\n")
+#######################################################
+
