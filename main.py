@@ -326,6 +326,7 @@ def approxTspTour(Graph, dMat):
                     if prioList[v] > w[v][minVertex]:
                         prioList[v] = w[v][minVertex]
                         parentList[v] = minVertex
+        # print(parentList)
         return parentList
     mstParents = mstPrim(Graph, dMat, root)
     # init visited list with root being "pre-visited"
